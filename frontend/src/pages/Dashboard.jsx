@@ -5,7 +5,6 @@ import {
   Clock, 
   TrendingUp, 
   ArrowUpRight,
-  MoreHorizontal,
   Calendar as CalendarIcon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -13,6 +12,8 @@ import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Badge } from '../components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { useTasks } from '../context/TaskContext';
+import { Link } from 'react-router-dom';
 
 const StatCard = ({ title, value, change, icon: Icon, trend }) => (
   <Card className="card-hover border-none shadow-sm bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
@@ -35,28 +36,41 @@ const StatCard = ({ title, value, change, icon: Icon, trend }) => (
   </Card>
 );
 
-const TaskRow = ({ title, time, priority, status }) => (
+const TaskRow = ({ task }) => (
   <div className="flex items-center justify-between p-4 rounded-xl bg-card border border-border/50 hover:border-primary/20 transition-colors group">
     <div className="flex items-center gap-4">
       <div className={`w-2 h-2 rounded-full ${
-        priority === 'High' ? 'bg-accent' : 
-        priority === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'
+        task.priority === 'High' ? 'bg-accent' : 
+        task.priority === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'
       }`} />
       <div>
-        <h4 className="font-medium text-sm group-hover:text-primary transition-colors">{title}</h4>
+        <h4 className="font-medium text-sm group-hover:text-primary transition-colors">{task.title}</h4>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
           <Clock className="w-3 h-3" />
-          <span>{time}</span>
+          <span>{task.duration} mins</span>
         </div>
       </div>
     </div>
-    <Badge variant={status === 'Done' ? 'default' : 'outline'} className={status === 'Done' ? 'bg-green-500 hover:bg-green-600' : ''}>
-      {status}
+    <Badge variant={task.completed ? 'default' : 'outline'} className={task.completed ? 'bg-green-500 hover:bg-green-600' : ''}>
+      {task.completed ? 'Done' : 'Pending'}
     </Badge>
   </div>
 );
 
 const Dashboard = () => {
+  const { tasks } = useTasks();
+  
+  // Dynamic Stats Calculation
+  const completedTasks = tasks.filter(t => t.completed).length;
+  const totalTasks = tasks.length;
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  
+  const totalMinutes = tasks.reduce((acc, t) => acc + (t.completed ? t.duration : 0), 0);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+
+  const upcomingDeadlines = tasks.filter(t => !t.completed && new Date(t.deadline) <= new Date(Date.now() + 86400000 * 2)).length;
+
   const [insight, setInsight] = React.useState({
     text: "Based on your work patterns, you're most productive between 9 AM and 11 AM. I've scheduled your most complex task, \"Q3 Financial Report\", for this slot.",
     highlight: "Q3 Financial Report"
@@ -80,13 +94,15 @@ const Dashboard = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Good Morning, Alex! ☀️</h1>
-          <p className="text-muted-foreground mt-1">You have 5 high-priority tasks today. Let's get focused.</p>
+          <p className="text-muted-foreground mt-1">You have {tasks.filter(t => t.priority === 'High' && !t.completed).length} high-priority tasks today. Let's get focused.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="gap-2">
-            <CalendarIcon className="w-4 h-4" />
-            View Calendar
-          </Button>
+          <Link to="/schedule">
+            <Button variant="outline" className="gap-2">
+              <CalendarIcon className="w-4 h-4" />
+              View Calendar
+            </Button>
+          </Link>
           <Button 
             onClick={handleOptimize}
             disabled={isOptimizing}
@@ -102,26 +118,26 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
           title="Productivity Score" 
-          value="84%" 
+          value={`${completionRate}%`} 
           icon={Activity} 
-          trend="+12%"
+          trend={completionRate > 50 ? "+12%" : null}
         />
         <StatCard 
           title="Tasks Completed" 
-          value="12/18" 
+          value={`${completedTasks}/${totalTasks}`} 
           icon={CheckCircle2} 
-          trend="+4"
+          trend={`+${completedTasks}`}
         />
         <StatCard 
           title="Focus Time" 
-          value="4h 20m" 
+          value={`${hours}h ${mins}m`} 
           icon={Clock} 
         />
         <StatCard 
           title="Upcoming Deadlines" 
-          value="3" 
+          value={upcomingDeadlines} 
           icon={TrendingUp} 
-          trend="Urgent"
+          trend={upcomingDeadlines > 0 ? "Urgent" : "On Track"}
         />
       </div>
 
@@ -151,13 +167,14 @@ const Dashboard = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Today's Focus</h2>
-              <Button variant="ghost" size="sm" className="text-muted-foreground">View All</Button>
+              <Link to="/tasks">
+                <Button variant="ghost" size="sm" className="text-muted-foreground">View All</Button>
+              </Link>
             </div>
             <div className="space-y-3">
-              <TaskRow title="Review Q3 Financial Report" time="09:00 AM - 11:00 AM" priority="High" status="In Progress" />
-              <TaskRow title="Team Sync Meeting" time="11:30 AM - 12:30 PM" priority="Medium" status="Pending" />
-              <TaskRow title="Design System Update" time="02:00 PM - 04:00 PM" priority="Medium" status="Pending" />
-              <TaskRow title="Client Email Responses" time="04:30 PM - 05:00 PM" priority="Low" status="Pending" />
+              {tasks.slice(0, 4).map(task => (
+                <TaskRow key={task.id} task={task} />
+              ))}
             </div>
           </div>
         </div>
@@ -173,9 +190,9 @@ const Dashboard = () => {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Goal Completion</span>
-                  <span className="font-medium">78%</span>
+                  <span className="font-medium">{completionRate}%</span>
                 </div>
-                <Progress value={78} className="h-2" />
+                <Progress value={completionRate} className="h-2" />
               </div>
               <div className="pt-4 border-t border-border">
                 <div className="flex items-center gap-3 mb-3">
@@ -198,9 +215,11 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-slate-400 mb-4">Capture tasks quickly before you forget.</p>
-              <Button variant="secondary" className="w-full bg-white/10 hover:bg-white/20 text-white border-none">
-                + New Task
-              </Button>
+              <Link to="/tasks">
+                <Button variant="secondary" className="w-full bg-white/10 hover:bg-white/20 text-white border-none">
+                  + New Task
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>

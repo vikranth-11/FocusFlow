@@ -6,7 +6,9 @@ import {
   MoreVertical, 
   Calendar as CalendarIcon,
   Clock,
-  Tag
+  Tag,
+  Trash2,
+  Check
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -29,14 +31,19 @@ import {
 } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { useTasks } from '../context/TaskContext';
+import { toast } from 'sonner';
 
-const TaskCard = ({ task }) => (
+const TaskCard = ({ task, onDelete, onToggle }) => (
   <Card className="mb-3 hover:shadow-md transition-all duration-200 border-l-4" style={{ borderLeftColor: task.color }}>
     <CardContent className="p-4 flex items-center justify-between">
       <div className="flex items-start gap-4">
         <div className="mt-1">
-          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer ${task.completed ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-            {task.completed && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+          <div 
+            onClick={() => onToggle(task.id)}
+            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors ${task.completed ? 'bg-primary border-primary' : 'border-muted-foreground hover:border-primary'}`}
+          >
+            {task.completed && <Check className="w-3 h-3 text-white" />}
           </div>
         </div>
         <div>
@@ -48,10 +55,13 @@ const TaskCard = ({ task }) => (
               <CalendarIcon className="w-3 h-3" />
               <span>{task.date}</span>
             </div>
-            {task.time && (
-              <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                <span>{task.time}</span>
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              <span>{task.duration}m</span>
+            </div>
+            {task.deadline && (
+               <div className="flex items-center gap-1 text-accent">
+                <span className="font-semibold">Due: {task.deadline}</span>
               </div>
             )}
             <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
@@ -69,21 +79,47 @@ const TaskCard = ({ task }) => (
         }`}>
           {task.priority}
         </Badge>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreVertical className="w-4 h-4 text-muted-foreground" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="w-4 h-4 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDelete(task.id)}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </CardContent>
   </Card>
 );
 
 const Tasks = () => {
-  const [tasks, setTasks] = useState([
-    { id: 1, title: "Review Q3 Financial Report", date: "Today", time: "2h", priority: "High", tag: "Finance", color: "hsl(10 80% 65%)", completed: false },
-    { id: 2, title: "Update Design System Tokens", date: "Today", time: "4h", priority: "Medium", tag: "Design", color: "hsl(255 70% 60%)", completed: false },
-    { id: 3, title: "Weekly Team Sync", date: "Tomorrow", time: "1h", priority: "Medium", tag: "Meeting", color: "hsl(180 60% 50%)", completed: false },
-    { id: 4, title: "Buy Groceries", date: "Sat, Oct 24", priority: "Low", tag: "Personal", color: "hsl(240 5% 65%)", completed: true },
-  ]);
+  const { tasks, addTask, deleteTask, toggleComplete } = useTasks();
+  const [isOpen, setIsOpen] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    priority: 'Medium',
+    duration: '60',
+    tag: 'General',
+    deadline: new Date().toISOString().split('T')[0]
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    addTask({
+      ...newTask,
+      date: new Date().toISOString().split('T')[0],
+      color: newTask.priority === 'High' ? 'hsl(10 80% 65%)' : newTask.priority === 'Medium' ? 'hsl(180 60% 50%)' : 'hsl(240 5% 65%)',
+      duration: parseInt(newTask.duration)
+    });
+    setIsOpen(false);
+    toast.success("Task created successfully!");
+    setNewTask({ title: '', priority: 'Medium', duration: '60', tag: 'General', deadline: new Date().toISOString().split('T')[0] });
+  };
 
   return (
     <div className="space-y-6">
@@ -100,7 +136,7 @@ const Tasks = () => {
             <ArrowUpDown className="w-4 h-4" />
           </Button>
           
-          <Dialog>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2 bg-primary text-white shadow-lg shadow-primary/20">
                 <Plus className="w-4 h-4" />
@@ -114,28 +150,34 @@ const Tasks = () => {
                   Create a new task and let AI optimize your schedule.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <form onSubmit={handleSubmit} className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="title">Task Title</Label>
-                  <Input id="title" placeholder="e.g., Finish project proposal" />
+                  <Input 
+                    id="title" 
+                    value={newTask.title}
+                    onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+                    placeholder="e.g., Finish project proposal" 
+                    required
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="priority">Priority</Label>
-                    <Select>
+                    <Select value={newTask.priority} onValueChange={(v) => setNewTask({...newTask, priority: v})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="High">High</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="Low">Low</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="duration">Est. Duration</Label>
-                    <Select>
+                    <Select value={newTask.duration} onValueChange={(v) => setNewTask({...newTask, duration: v})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
@@ -144,18 +186,25 @@ const Tasks = () => {
                         <SelectItem value="60">1 hour</SelectItem>
                         <SelectItem value="120">2 hours</SelectItem>
                         <SelectItem value="240">4 hours</SelectItem>
+                        <SelectItem value="600">10 hours (Split)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="notes">Notes (Optional)</Label>
-                  <Input id="notes" placeholder="Add details..." />
+                  <Label htmlFor="deadline">Deadline</Label>
+                  <Input 
+                    id="deadline" 
+                    type="date"
+                    value={newTask.deadline}
+                    onChange={(e) => setNewTask({...newTask, deadline: e.target.value})}
+                    required
+                  />
                 </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Create Task</Button>
-              </DialogFooter>
+                <DialogFooter>
+                  <Button type="submit">Create Task</Button>
+                </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
@@ -163,9 +212,20 @@ const Tasks = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-2">
-          {tasks.map(task => (
-            <TaskCard key={task.id} task={task} />
-          ))}
+          {tasks.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              No tasks yet. Add one to get started!
+            </div>
+          ) : (
+            tasks.map(task => (
+              <TaskCard 
+                key={task.id} 
+                task={task} 
+                onDelete={deleteTask}
+                onToggle={toggleComplete}
+              />
+            ))
+          )}
         </div>
 
         <div className="space-y-6">
