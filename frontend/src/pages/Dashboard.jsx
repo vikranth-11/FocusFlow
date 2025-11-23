@@ -57,6 +57,23 @@ const TaskRow = ({ title, time, priority, status }) => (
 );
 
 const Dashboard = () => {
+  const [insight, setInsight] = React.useState({
+    text: "Based on your work patterns, you're most productive between 9 AM and 11 AM. I've scheduled your most complex task, \"Q3 Financial Report\", for this slot.",
+    highlight: "Q3 Financial Report"
+  });
+  const [isOptimizing, setIsOptimizing] = React.useState(false);
+
+  const handleOptimize = () => {
+    setIsOptimizing(true);
+    setTimeout(() => {
+      setInsight({
+        text: "I've detected a conflict at 2 PM. Moving \"Design System Update\" to 4 PM would free up a solid 3-hour block for deep work.",
+        highlight: "Design System Update"
+      });
+      setIsOptimizing(false);
+    }, 1500);
+  };
+
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
@@ -70,9 +87,13 @@ const Dashboard = () => {
             <CalendarIcon className="w-4 h-4" />
             View Calendar
           </Button>
-          <Button className="gap-2 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25">
-            <ArrowUpRight className="w-4 h-4" />
-            Optimize Schedule
+          <Button 
+            onClick={handleOptimize}
+            disabled={isOptimizing}
+            className="gap-2 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 transition-all"
+          >
+            <ArrowUpRight className={`w-4 h-4 ${isOptimizing ? 'animate-spin' : ''}`} />
+            {isOptimizing ? 'Optimizing...' : 'Optimize Schedule'}
           </Button>
         </div>
       </div>
@@ -108,7 +129,7 @@ const Dashboard = () => {
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
           {/* AI Insight Widget */}
-          <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/10">
+          <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/10 transition-all duration-500">
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
@@ -118,9 +139,10 @@ const Dashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Based on your work patterns, you're most productive between <strong>9 AM and 11 AM</strong>. 
-                I've scheduled your most complex task, <span className="font-medium text-foreground">"Q3 Financial Report"</span>, for this slot.
+              <p className="text-sm text-muted-foreground leading-relaxed animate-in fade-in duration-500 key={insight.text}">
+                {insight.text.split(insight.highlight)[0]}
+                <span className="font-medium text-foreground">{insight.highlight}</span>
+                {insight.text.split(insight.highlight)[1]}
               </p>
             </CardContent>
           </Card>
