@@ -30,7 +30,7 @@ A smart task management application that optimally assigns tasks based on deadli
 
    ```bash
    git clone <your-repo-url>
-   cd Task_scheduler
+   cd FocusFlow
    ```
 
 2. **Launch the "Brain" (Backend)**:
