@@ -1,33 +1,18 @@
 import React, { useState } from 'react';
 import { 
-  Plus, 
-  Filter, 
-  ArrowUpDown, 
-  MoreVertical, 
-  Calendar as CalendarIcon,
-  Clock,
-  Tag,
-  Trash2,
-  Check
+  Plus, Filter, ArrowUpDown, MoreVertical, 
+  Calendar as CalendarIcon, Clock, Tag, Trash2, Check, RefreshCw
 } from 'lucide-react';
+// FIXED IMPORTS: Using relative paths
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "../components/ui/dialog";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -51,30 +36,37 @@ const TaskCard = ({ task, onDelete, onToggle }) => (
             {task.title}
           </h3>
           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <CalendarIcon className="w-3 h-3" />
-              <span>{task.date}</span>
-            </div>
+            {task.deadline && (
+               <div className="flex items-center gap-1 text-accent font-medium">
+                <CalendarIcon className="w-3 h-3" />
+                <span>Due: {task.deadline}</span>
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
               <span>{task.duration}m</span>
             </div>
-            {task.deadline && (
-               <div className="flex items-center gap-1 text-accent">
-                <span className="font-semibold">Due: {task.deadline}</span>
-              </div>
-            )}
-            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
-              {task.tag}
-            </Badge>
+            
+            {task.tags && task.tags.map((tag, i) => (
+                <Badge key={i} variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
+                    {tag}
+                </Badge>
+            ))}
           </div>
         </div>
       </div>
       
       <div className="flex items-center gap-2">
+        {/* Show AI Score if available */}
+        {task.ai_score > 0 && (
+            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1 rounded">
+                AI Score: {Math.round(task.ai_score)}
+            </span>
+        )}
+
         <Badge className={`${
-          task.priority === 'High' ? 'bg-accent text-white hover:bg-accent/90' : 
-          task.priority === 'Medium' ? 'bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20' : 
+          task.priority === 'High' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 
+          task.priority === 'Medium' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 
           'bg-slate-100 text-slate-600 hover:bg-slate-200'
         }`}>
           {task.priority}
@@ -98,8 +90,10 @@ const TaskCard = ({ task, onDelete, onToggle }) => (
 );
 
 const Tasks = () => {
-  const { tasks, addTask, deleteTask, toggleComplete } = useTasks();
+  const { tasks, addTask, deleteTask, toggleComplete, loading } = useTasks();
   const [isOpen, setIsOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [newTask, setNewTask] = useState({
     title: '',
     priority: 'Medium',
@@ -108,17 +102,20 @@ const Tasks = () => {
     deadline: new Date().toISOString().split('T')[0]
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    addTask({
-      ...newTask,
-      date: new Date().toISOString().split('T')[0],
-      color: newTask.priority === 'High' ? 'hsl(10 80% 65%)' : newTask.priority === 'Medium' ? 'hsl(180 60% 50%)' : 'hsl(240 5% 65%)',
-      duration: parseInt(newTask.duration)
-    });
-    setIsOpen(false);
-    toast.success("Task created successfully!");
-    setNewTask({ title: '', priority: 'Medium', duration: '60', tag: 'General', deadline: new Date().toISOString().split('T')[0] });
+    setIsSubmitting(true);
+    try {
+        await addTask(newTask);
+        setIsOpen(false);
+        toast.success("Task sent to AI Engine");
+        // Reset form
+        setNewTask({ title: '', priority: 'Medium', duration: '60', tag: 'General', deadline: new Date().toISOString().split('T')[0] });
+    } catch (err) {
+        toast.error("Failed to connect to AI Backend");
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -202,7 +199,10 @@ const Tasks = () => {
                   />
                 </div>
                 <DialogFooter>
-                  <Button type="submit">Create Task</Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Create Task
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -212,9 +212,14 @@ const Tasks = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-2">
-          {tasks.length === 0 ? (
+          {loading ? (
+             <div className="text-center py-12 text-muted-foreground flex flex-col items-center">
+                <RefreshCw className="w-8 h-8 animate-spin mb-4 opacity-50" />
+                Connecting to AI Backend...
+             </div>
+          ) : tasks.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              No tasks yet. Add one to get started!
+              No tasks found. Add one to trigger the algorithm!
             </div>
           ) : (
             tasks.map(task => (

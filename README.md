@@ -20,30 +20,38 @@ A smart task management application that optimally assigns tasks based on deadli
 ## 🏃‍♂️ How to Run Locally
 
 ### Prerequisites
-- Node.js (v16 or higher)
-- Yarn or npm
+
+- Node.js (v16+)
+- Python (v3.9+)
 
 ### Installation
 
 1. **Clone the repository** (or download the source code):
+
    ```bash
    git clone <your-repo-url>
-   cd intelligent-task-scheduler
+   cd Task_scheduler
    ```
 
-2. **Install Dependencies**:
+2. **Launch the "Brain" (Backend)**:
+
    ```bash
+   cd backend
+   pip install -r requirements.txt
+   python server.py
+   ```
+
+   You should see: INFO: Uvicorn running on http://0.0.0.0:8000
+
+3. **Launch the "Interface" (Frontend)**:
+   Open a new terminal window.
+
    cd frontend
-   yarn install
-   # or
-   npm install
+   npm install --legacy-peer-deps
+   npm start
+
    ```
 
-3. **Start the Development Server**:
-   ```bash
-   yarn start
-   # or
-   npm start
    ```
 
 4. **Open in Browser**:
@@ -66,6 +74,7 @@ A smart task management application that optimally assigns tasks based on deadli
 ## 🧠 Smart Scheduling Logic
 
 The scheduler uses a client-side algorithm located in `src/context/TaskContext.jsx`:
+
 1. **Filters** tasks for the selected date.
 2. **Sorts** by a calculated Priority Score (Priority Weight + Deadline Urgency).
 3. **Allocates** time slots starting from 9:00 AM.

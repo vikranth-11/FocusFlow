@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 
 const TaskContext = createContext();
+
+// Backend URL - Ensure your Python server is running
+const API_URL = 'http://localhost:8000/api';
 
 export const useTasks = () => {
   const context = useContext(TaskContext);
@@ -11,104 +15,152 @@ export const useTasks = () => {
 };
 
 export const TaskProvider = ({ children }) => {
-  // Initial Mock Data
-  const [tasks, setTasks] = useState([
-    { id: 1, title: "Review Q3 Financial Report", date: new Date().toISOString().split('T')[0], duration: 120, priority: "High", tag: "Finance", color: "hsl(10 80% 65%)", completed: false, deadline: new Date().toISOString().split('T')[0] },
-    { id: 2, title: "Update Design System Tokens", date: new Date().toISOString().split('T')[0], duration: 240, priority: "Medium", tag: "Design", color: "hsl(255 70% 60%)", completed: false, deadline: new Date(Date.now() + 86400000).toISOString().split('T')[0] },
-    { id: 3, title: "Weekly Team Sync", date: new Date(Date.now() + 86400000).toISOString().split('T')[0], duration: 60, priority: "Medium", tag: "Meeting", color: "hsl(180 60% 50%)", completed: false, deadline: new Date(Date.now() + 86400000).toISOString().split('T')[0] },
-    { id: 4, title: "Buy Groceries", date: new Date(Date.now() + 172800000).toISOString().split('T')[0], duration: 45, priority: "Low", tag: "Personal", color: "hsl(240 5% 65%)", completed: true, deadline: new Date(Date.now() + 172800000).toISOString().split('T')[0] },
-  ]);
+  const [tasks, setTasks] = useState([]);
+  const [weeklySchedule, setWeeklySchedule] = useState({});
+  const [loading, setLoading] = useState(false);
 
-  const [schedule, setSchedule] = useState([]);
-
-  // Priority Scoring Algorithm
-  const calculatePriorityScore = (task) => {
-    const priorityWeights = { High: 3, Medium: 2, Low: 1 };
-    const deadlineWeight = new Date(task.deadline).getTime() - new Date().getTime() < 86400000 ? 2 : 0; // Boost if due within 24h
-    return priorityWeights[task.priority] + deadlineWeight;
-  };
-
-  // Smart Scheduling Algorithm (Splitting & Breaks)
-  const generateSmartSchedule = (selectedDate) => {
-    const dateStr = selectedDate.toISOString().split('T')[0];
+  // Helper: Assign colors based on priority
+  const enhanceTaskWithUI = (task) => {
+    let color = 'hsl(240 5% 65%)'; // Default Low
+    if (task.priority === 'High') color = 'hsl(10 80% 65%)';
+    if (task.priority === 'Medium') color = 'hsl(180 60% 50%)';
     
-    // 1. Filter tasks for this date or overdue
-    let dailyTasks = tasks.filter(t => t.date === dateStr && !t.completed);
+    return { 
+      ...task, 
+      color, 
+      date: task.deadline 
+    };
+  };
 
-    // 2. Sort by Priority Score
-    dailyTasks.sort((a, b) => calculatePriorityScore(b) - calculatePriorityScore(a));
+  // 1. Fetch Tasks from Backend
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${API_URL}/tasks`);
+      const data = Array.isArray(res.data) ? res.data : [];
+      const enhancedTasks = data.map(enhanceTaskWithUI);
+      setTasks(enhancedTasks);
+    } catch (error) {
+      console.error("Failed to fetch tasks:", error);
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const generatedSlots = [];
-    let currentTime = 9 * 60; // Start at 9:00 AM (in minutes)
-    const endTime = 17 * 60; // End at 5:00 PM
+  // 2. Add Task
+  const addTask = async (newTaskData) => {
+    try {
+      const payload = {
+        title: newTaskData.title,
+        priority: newTaskData.priority,
+        duration: parseInt(newTaskData.duration) || 60,
+        deadline: newTaskData.deadline,
+        tags: [newTaskData.tag] 
+      };
 
-    dailyTasks.forEach(task => {
-      let remainingDuration = task.duration;
+      await axios.post(`${API_URL}/tasks`, payload);
+      // Refresh data to get the updated schedule
+      await fetchTasks();
+      await fetchSchedule(); 
+    } catch (error) {
+      console.error("Failed to add task:", error);
+      throw error;
+    }
+  };
+
+  // --- THE MAGIC DEMO FUNCTION ---
+  const loadDemoData = async () => {
+    setLoading(true);
+    try {
+      // 1. CLEAR OLD DATA FIRST (Prevents duplicates)
+      await axios.post(`${API_URL}/db/reset`);
       
-      while (remainingDuration > 0 && currentTime < endTime) {
-        // Max block size = 90 mins to force breaks
-        const blockSize = Math.min(remainingDuration, 90); 
-        
-        generatedSlots.push({
-          id: `${task.id}-${currentTime}`,
-          taskId: task.id,
-          title: task.title,
-          startTime: formatTime(currentTime),
-          duration: blockSize,
-          color: task.color,
-          type: 'task'
-        });
+      // Clear local state immediately to show UI feedback
+      setTasks([]);
+      setWeeklySchedule({});
 
-        currentTime += blockSize;
-        remainingDuration -= blockSize;
+      // 2. Add Huge Task (to show intelligent chunking)
+      await axios.post(`${API_URL}/tasks`, {
+        title: "Study for Final Exams",
+        priority: "High",
+        duration: 600, // 10 Hours
+        deadline: new Date(Date.now() + 86400000 * 10).toISOString().split('T')[0], // 10 days out
+        tags: ["Study"]
+      });
 
-        // Add a 15 min break if task is split or finished, and we have time left
-        if (currentTime < endTime) {
-          generatedSlots.push({
-            id: `break-${currentTime}`,
-            title: "Brain Break 🧠",
-            startTime: formatTime(currentTime),
-            duration: 15,
-            color: "hsl(150, 40%, 90%)",
-            type: 'break'
-          });
-          currentTime += 15;
-        }
-      }
-    });
+      // 3. Add Urgent Task (to show prioritization)
+      await axios.post(`${API_URL}/tasks`, {
+        title: "Submit Project Proposal",
+        priority: "High",
+        duration: 60,
+        deadline: new Date(Date.now() + 86400000).toISOString().split('T')[0], // Tomorrow
+        tags: ["Work"]
+      });
 
-    return generatedSlots;
+      // 4. Medium Filler Task
+      await axios.post(`${API_URL}/tasks`, {
+        title: "Weekly Team Sync",
+        priority: "Medium",
+        duration: 45,
+        deadline: new Date().toISOString().split('T')[0], // Today
+        tags: ["Meeting"]
+      });
+
+      // Refresh everything
+      await fetchTasks();
+      await fetchSchedule();
+    } catch (e) {
+      console.error("Demo load failed", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const formatTime = (minutes) => {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+  // 3. Fetch Optimized Schedule
+  const fetchSchedule = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/schedule`);
+      setWeeklySchedule(res.data.schedule || {});
+    } catch (error) {
+      console.error("Failed to fetch schedule:", error);
+    }
   };
 
-  const addTask = (newTask) => {
-    setTasks([...tasks, { ...newTask, id: Date.now(), completed: false }]);
-  };
-
-  const deleteTask = (id) => {
-    setTasks(tasks.filter(t => t.id !== id));
+  const deleteTask = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/tasks/${id}`);
+      setTasks(prev => prev.filter(t => t.id !== id));
+      await fetchSchedule();
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+    }
   };
 
   const toggleComplete = (id) => {
     setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
 
+  useEffect(() => {
+    fetchTasks();
+    fetchSchedule();
+  }, []);
+
   return (
     <TaskContext.Provider value={{ 
       tasks, 
+      weeklySchedule,
+      loading,
       addTask, 
+      loadDemoData,
       deleteTask, 
       toggleComplete, 
-      generateSmartSchedule 
+      fetchTasks,
+      fetchSchedule
     }}>
       {children}
     </TaskContext.Provider>
   );
 };
+
+export default TaskProvider;

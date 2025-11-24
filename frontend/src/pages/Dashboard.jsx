@@ -72,8 +72,8 @@ const Dashboard = () => {
   const upcomingDeadlines = tasks.filter(t => !t.completed && new Date(t.deadline) <= new Date(Date.now() + 86400000 * 2)).length;
 
   const [insight, setInsight] = React.useState({
-    text: "Based on your work patterns, you're most productive between 9 AM and 11 AM. I've scheduled your most complex task, \"Q3 Financial Report\", for this slot.",
-    highlight: "Q3 Financial Report"
+    text: "",
+    highlight: ""
   });
   const [isOptimizing, setIsOptimizing] = React.useState(false);
 
@@ -144,25 +144,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
-          {/* AI Insight Widget */}
-          <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/10 transition-all duration-500">
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="text-xs">✨</span>
-                </div>
-                <CardTitle className="text-base text-primary">AI Insight</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground leading-relaxed animate-in fade-in duration-500 key={insight.text}">
-                {insight.text.split(insight.highlight)[0]}
-                <span className="font-medium text-foreground">{insight.highlight}</span>
-                {insight.text.split(insight.highlight)[1]}
-              </p>
-            </CardContent>
-          </Card>
-
+         
           {/* Today's Schedule */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
