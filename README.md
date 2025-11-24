@@ -51,7 +51,11 @@ A smart task management application that optimally assigns tasks based on deadli
    npm start
 
    ```
+   Open a new terminal window.
 
+   cd frontend
+   npm install --legacy-peer-deps
+   npm start
    ```
 
 4. **Open in Browser**:
