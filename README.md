@@ -57,6 +57,7 @@ A smart task management application that optimally assigns tasks based on deadli
    npm install --legacy-peer-deps
 
    "Don't run npm audit"
+   
    npm start
    ```
 
